@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.support.v4.view.MotionEventCompat;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.RelativeLayout;
 
 import com.chameleonchen.miui_clock.R;
@@ -136,8 +138,31 @@ public class ElasticAndAlignBottomLayout extends RelativeLayout{
             lastY = ev.getRawY();
         }
 
+        View childView = getChildAt(0);
+        int top = childView.getTop();
+        int bottom = childView.getBottom();
+        Log.i("Elastic", "top: " + top + "; bottom: " + bottom + "; height: " + (bottom - top));
+
         // it must return true.
         return true;
     }
 
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        final int count = getChildCount();
+        if (count == 0)
+            return ;
+        else if (count == 1) {
+            // if this view group has a view, resize the view.
+            // the view must fill this view group.
+
+            View child = getChildAt(0);
+            if (child.getVisibility() != GONE) {
+                child.layout(0, 0, r - l, b - t);   // make view fill this view group.
+            }
+        }
+        else {
+            throw new IllegalStateException("The ElasticAndAlignBottomLayout must only has zero or one view");
+        }
+    }
 }
