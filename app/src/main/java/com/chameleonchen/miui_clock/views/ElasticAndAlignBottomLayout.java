@@ -2,14 +2,15 @@ package com.chameleonchen.miui_clock.views;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.os.Handler;
 import android.support.v4.view.MotionEventCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
-import android.view.View;
 import android.widget.RelativeLayout;
 
 import com.chameleonchen.miui_clock.R;
+
+import java.util.logging.LogRecord;
 
 /**
  * Created on 2015/7/30.
@@ -101,17 +102,19 @@ public class ElasticAndAlignBottomLayout extends RelativeLayout{
         final int action = MotionEventCompat.getActionMasked(ev);
         if (action == MotionEvent.ACTION_DOWN) {
             isTouchDown = true;
-            initOriginalPositionData();
-            lastY = ev.getRawY();
-            firstTop = getTop();
+            startMotion(ev);
         }
 
         // if the elastic view group move to top limit, did not intercept the even.
         if (firstTop == mixDistanceToTop) {
-            if (action == MotionEvent.ACTION_MOVE) {
-                ElasticListView child = getChildView();
-                if (child != null) {
-                    if (child.isListViewAtTop()) {
+            ElasticListView child = getChildView();
+            if (child != null) {
+                if (child.isListViewAtTop()) {
+                    if (!isTouchDown) {
+                        isTouchDown = true;
+                        startMotion(ev);
+                    } else {
+                        dealMotionEven(ev);
                     }
                 }
             }
@@ -130,15 +133,31 @@ public class ElasticAndAlignBottomLayout extends RelativeLayout{
         // the even will pass on here.
         // If the even pass on here, means the even will not pass on to child view
 
+        dealMotionEven(ev);
+
+        // it must return true.
+        return true;
+    }
+
+    private void startMotion(MotionEvent ev) {
+        initOriginalPositionData();
+        lastY = ev.getRawY();
+        firstTop = getTop();
+    }
+
+    private void dealMotionEven(MotionEvent ev) {
+
         final int action = MotionEventCompat.getActionMasked(ev);
 
         if (action == MotionEvent.ACTION_UP) {
             int temp = (int) (firstTop + offset);
             int length = maxDistanceToTop - mixDistanceToTop;
             if (temp < mixDistanceToTop || temp < mixDistanceToTop + length/2) {
-                layout(originalLeft, mixDistanceToTop, originalRight, originalBottom);
+//                layout(originalLeft, mixDistanceToTop, originalRight, originalBottom);
+                movingLayoutSlowly(originalLeft, originalRight, originalBottom, temp, mixDistanceToTop);
             } else if (temp > maxDistanceToTop || temp > maxDistanceToTop - length/2) {
-                layout(originalLeft, maxDistanceToTop, originalRight, originalBottom);
+//                layout(originalLeft, maxDistanceToTop, originalRight, originalBottom);
+                movingLayoutSlowly(originalLeft, originalRight, originalBottom, temp, maxDistanceToTop);
             }
 
             resetValue();
@@ -155,9 +174,14 @@ public class ElasticAndAlignBottomLayout extends RelativeLayout{
 
             lastY = ev.getRawY();
         }
+    }
 
-        // it must return true.
-        return true;
+
+    private Handler handler = new Handler();
+    private MovingLayoutSlowlyRunnable mMovingLayoutSlowlyRunnable;
+    private void movingLayoutSlowly(int originalLeft, int originalRight, int originalBottom, int fromTop, int toTop) {
+        mMovingLayoutSlowlyRunnable = new MovingLayoutSlowlyRunnable(handler, 5, 20, originalLeft, originalRight, originalBottom, fromTop, toTop);
+        handler.postDelayed(mMovingLayoutSlowlyRunnable, 200);
     }
 
     @Override
@@ -185,6 +209,40 @@ public class ElasticAndAlignBottomLayout extends RelativeLayout{
         }
         else {
             throw new IllegalStateException("The ElasticAndAlignBottomLayout must only has zero or one view");
+        }
+    }
+
+    class MovingLayoutSlowlyRunnable implements Runnable {
+        private int originalLeft, originalRight, originalBottom, fromTop, toTop;
+        private int unitTime;
+        private int times;
+        private Handler handler;
+        private int unitDistance;
+        private int i = 1;
+        public MovingLayoutSlowlyRunnable(final Handler handler, int unitTime, int times,
+                                          int originalLeft, int originalRight, int originalBottom, int fromTop, int toTop) {
+            this.originalLeft = originalLeft;
+            this.originalBottom = originalBottom;
+            this.originalRight =originalRight;
+            this.fromTop = fromTop;
+            this.toTop = toTop;
+            this.unitTime = unitTime;
+            this.times = times;
+            this.handler = handler;
+
+            unitDistance = Math.abs(fromTop - toTop) / times;
+        }
+        @Override
+        public void run() {
+            if (i <= times) {
+                if (fromTop < toTop)
+                    ElasticAndAlignBottomLayout.this.layout(originalLeft, fromTop + i * unitDistance, originalRight, originalBottom);
+                else
+                    ElasticAndAlignBottomLayout.this.layout(originalLeft, fromTop - i * unitDistance, originalRight, originalBottom);
+
+                i++;
+                handler.postDelayed(this, unitTime);
+            }
         }
     }
 }
