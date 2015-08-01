@@ -42,7 +42,7 @@
             android:background="@android:color/white"
             >
 
-            <ListView
+            <com.chameleonchen.miui_clock.views.ElasticListView
                 android:id="@+id/lv_clock_list"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
